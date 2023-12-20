@@ -6,6 +6,8 @@ import uuid
 import yaml
 from loguru import logger
 import os
+import boto3
+import pymongo
 
 images_bucket = os.environ['BUCKET_NAME']
 
@@ -13,6 +15,9 @@ with open("data/coco128.yaml", "r") as stream:
     names = yaml.safe_load(stream)['names']
 
 app = Flask(__name__)
+
+##new
+s3= boto3.client("s3")
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -24,11 +29,17 @@ def predict():
     # Receives a URL parameter representing the image to download from S3
     img_name = request.args.get('imgName')
 
-    # TODO download img_name from S3, store the local image path in original_img_path
-    #  The bucket name should be provided as an env var BUCKET_NAME.
-    original_img_path = ...
 
-    logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
+
+    try:
+        image_local_name = f"/images_path/{img_name}"
+        s3.download_file(images_bucket,img_name,image_local_name)
+        original_img_path = image_local_name
+        logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
+    except Exception as e:
+        logger.error(f'Failed to download the image {img_name} .Error:str{(e)}')
+        return f'Failed to download image : {img_name}',500
+
 
     # Predicts the objects in the image
     run(
@@ -46,7 +57,14 @@ def predict():
     # The predicted image typically includes bounding boxes drawn around the detected objects, along with class labels and possibly confidence scores.
     predicted_img_path = Path(f'static/data/{prediction_id}/{original_img_path}')
 
-    # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
+
+    try:
+        predicted_img="predicted"+img_name
+        s3.upload_file(predicted_img_path,images_bucket,predicted_img)
+        logger.info(f'prediction: {predicted_img}. Uploading img completed')
+    except Exception as e:
+        logger.error(f'Failed to upload the predicted image {predicted_img} to s3 .Error:str{(e)}')
+        return f'Failed to upload predicted image : {predicted_img}',500
 
     # Parse prediction labels and create a summary
     pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
@@ -72,8 +90,26 @@ def predict():
             'time': time.time()
         }
 
-        # TODO store the prediction_summary in MongoDB
+        ## solution
 
+        replicaSet_name = myReplicaSet
+        mongo_uri = "mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet={replicaSet_name}"
+        try:
+            # connect to the MongoDB cluster
+            logger.info(f'connecting to the MongoDB cluster')
+            client = pymongo.MongoClient(mongo_uri)
+        except Exception as e:
+            logger.error(f'Failed to connect to MongoDB cluster .Error:str{(e)}')
+            return f'Failed', 500
+
+        # The database and collection where we want to store the prediction summaries
+        db = client["obejectDetection_db"]
+        collection = db["obejectDetection_collection"]
+        result = collection.insert_one(prediction_summary)
+        if result.acknowledged:
+            logger.info(f'prediction Summary stored successfully in MongoDB')
+        else:
+            logger.error(f'Failed to store summary in MongoDB')
         return prediction_summary
     else:
         return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404

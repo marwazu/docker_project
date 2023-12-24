@@ -32,9 +32,16 @@ def predict():
 
 
     try:
+<<<<<<< HEAD
+        original_img_path=img_name
+        #image_local_name = f"/images_path/{img_name}"
+        s3.download_file(images_bucket,img_name,original_img_path)
+        #original_img_path = image_local_name
+=======
         image_local_name = f"/images_path/{img_name}"
         s3.download_file(images_bucket,img_name,image_local_name)
         original_img_path = image_local_name
+>>>>>>> origin/main
         logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
     except Exception as e:
         logger.error(f'Failed to download the image {img_name} .Error:str{(e)}')
@@ -56,6 +63,7 @@ def predict():
     # This is the path for the predicted image with labels
     # The predicted image typically includes bounding boxes drawn around the detected objects, along with class labels and possibly confidence scores.
     predicted_img_path = Path(f'static/data/{prediction_id}/{original_img_path}')
+    predicted_img_path_str = str(predicted_img_path)
 
 
     try:
@@ -68,6 +76,7 @@ def predict():
 
     # Parse prediction labels and create a summary
     pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
+
     if pred_summary_path.exists():
         with open(pred_summary_path) as f:
             labels = f.read().splitlines()
@@ -85,14 +94,18 @@ def predict():
         prediction_summary = {
             'prediction_id': prediction_id,
             'original_img_path': original_img_path,
-            'predicted_img_path': predicted_img_path,
+            'predicted_img_path': predicted_img_path_str,
             'labels': labels,
             'time': time.time()
         }
 
         ## solution
 
+<<<<<<< HEAD
+        replicaSet_name = "myReplicaSet"
+=======
         replicaSet_name = myReplicaSet
+>>>>>>> origin/main
         mongo_uri = "mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet={replicaSet_name}"
         try:
             # connect to the MongoDB cluster
@@ -105,11 +118,29 @@ def predict():
         # The database and collection where we want to store the prediction summaries
         db = client["obejectDetection_db"]
         collection = db["obejectDetection_collection"]
+<<<<<<< HEAD
+        #result = collection.insert_one(prediction_summary)
+        try:
+            #prediction_summary['_id'] = str(prediction_summary['_id'])
+            result=collection.insert_one(prediction_summary)
+            #prediction_summary['_id']=str(prediction_summary['_id'])
+            if result.acknowledged:
+                # Convert the ObjectId to string before returning the response
+                inserted_id = result.inserted_id
+                prediction_summary['_id'] = str(inserted_id)
+        #if result.acknowledged:
+            logger.info(f'prediction Summary stored successfully in MongoDB')
+        #else:
+        except Exception as e:
+            logger.error(f'Failed to store summary in MongoDB')
+            return f'Failed to store summary in MongoDB', 500
+=======
         result = collection.insert_one(prediction_summary)
         if result.acknowledged:
             logger.info(f'prediction Summary stored successfully in MongoDB')
         else:
             logger.error(f'Failed to store summary in MongoDB')
+>>>>>>> origin/main
         return prediction_summary
     else:
         return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404

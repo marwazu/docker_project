@@ -23,29 +23,20 @@ s3= boto3.client("s3")
 def predict():
     # Generates a UUID for this current prediction HTTP request. This id can be used as a reference in logs to identify and track individual prediction requests.
     prediction_id = str(uuid.uuid4())
-
     logger.info(f'prediction: {prediction_id}. start processing')
-
     # Receives a URL parameter representing the image to download from S3
-    img_name = request.args.get('imgName')
-
-
-
+    image_name = request.args.get('imgName')
     try:
-<<<<<<< HEAD
-        original_img_path=img_name
+        original_img_path=image_name
+        s3.download_file(images_bucket,image_name,original_img_path)
         #image_local_name = f"/images_path/{img_name}"
-        s3.download_file(images_bucket,img_name,original_img_path)
+        #s3.download_file(images_bucket,img_name,image_local_name)
         #original_img_path = image_local_name
-=======
-        image_local_name = f"/images_path/{img_name}"
-        s3.download_file(images_bucket,img_name,image_local_name)
-        original_img_path = image_local_name
->>>>>>> origin/main
+
         logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
     except Exception as e:
-        logger.error(f'Failed to download the image {img_name} .Error:str{(e)}')
-        return f'Failed to download image : {img_name}',500
+        logger.error(f'Failed to download the image :{image_name} .Error:{str(e)}')
+        return f'Failed to download image : {image_name}',500
 
 
     # Predicts the objects in the image
@@ -67,11 +58,11 @@ def predict():
 
 
     try:
-        predicted_img="predicted"+img_name
+        predicted_img="predicted"+image_name
         s3.upload_file(predicted_img_path,images_bucket,predicted_img)
         logger.info(f'prediction: {predicted_img}. Uploading img completed')
     except Exception as e:
-        logger.error(f'Failed to upload the predicted image {predicted_img} to s3 .Error:str{(e)}')
+        logger.error(f'Failed to upload the predicted image {predicted_img} to s3 .Error:{str(e)}')
         return f'Failed to upload predicted image : {predicted_img}',500
 
     # Parse prediction labels and create a summary
@@ -100,13 +91,10 @@ def predict():
         }
 
         ## solution
-
-<<<<<<< HEAD
         replicaSet_name = "myReplicaSet"
-=======
-        replicaSet_name = myReplicaSet
->>>>>>> origin/main
-        mongo_uri = "mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet={replicaSet_name}"
+
+
+        mongo_uri = f"mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet={replicaSet_name}"
         try:
             # connect to the MongoDB cluster
             logger.info(f'connecting to the MongoDB cluster')
@@ -118,33 +106,21 @@ def predict():
         # The database and collection where we want to store the prediction summaries
         db = client["obejectDetection_db"]
         collection = db["obejectDetection_collection"]
-<<<<<<< HEAD
-        #result = collection.insert_one(prediction_summary)
+
         try:
-            #prediction_summary['_id'] = str(prediction_summary['_id'])
-            result=collection.insert_one(prediction_summary)
-            #prediction_summary['_id']=str(prediction_summary['_id'])
-            if result.acknowledged:
-                # Convert the ObjectId to string before returning the response
-                inserted_id = result.inserted_id
-                prediction_summary['_id'] = str(inserted_id)
-        #if result.acknowledged:
+            collection.insert_one(prediction_summary)
+            prediction_summary['_id'] = str(prediction_summary['_id'])
             logger.info(f'prediction Summary stored successfully in MongoDB')
-        #else:
+            return prediction_summary
         except Exception as e:
             logger.error(f'Failed to store summary in MongoDB')
             return f'Failed to store summary in MongoDB', 500
-=======
-        result = collection.insert_one(prediction_summary)
-        if result.acknowledged:
-            logger.info(f'prediction Summary stored successfully in MongoDB')
-        else:
-            logger.error(f'Failed to store summary in MongoDB')
->>>>>>> origin/main
-        return prediction_summary
     else:
         return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404
 
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8081)
+
+
+

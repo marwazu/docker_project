@@ -83,20 +83,18 @@ class ObjectDetectionBot(Bot):
             try:
                 #Download the user photo
                 image_path=self.download_user_photo(msg)
-                image_name=image_path.split('/')[-1]
-
+                image_name=image_path.split('/')[1]
                 #upload the photo to S3
                 images_bucket = os.environ['BUCKET_NAME']
                 s3 = boto3.client("s3")
                 s3.upload_file(image_path, images_bucket, image_name)
-                logger.info(f' {image_name} : Uploading img to s3 completed')
+                logger.info(f' {image_name} : Uploading image to s3 completed')
             except Exception as e:
                 logger.error(f'Failed to upload {image_name} to S3: {e}')
                 return
-
             try:
                 #send a request to the `yolo5` service for prediction
-                response = requests.post('http://localhost:8081/predict', params={'imgName': image_name})
+                response = requests.post(f"http://yolo5-app5:8081/predict?imgName={image_name}")
                 if response.status_code != 200:
                     logger.error(f'the prediction request to yolo5 service failed')
                 else:
@@ -105,6 +103,7 @@ class ObjectDetectionBot(Bot):
                     logger.info(f'Received predictions: {predictions}')
                     predictionsformat= self.predictions_format(predictions)
                     try:
+                        self.send_text(msg['chat']['id'], 'The objects detected in the image are:')
                         self.send_text(msg['chat']['id'], predictionsformat)
                     except Exception as e:
                         logger.error(f'Failed to send predictions to user: {e}')
@@ -123,6 +122,7 @@ class ObjectDetectionBot(Bot):
                     detected_objects[objectDetected] +=1
                 else :
                     detected_objects[objectDetected]=1
+            result=''
             for object, count in detected_objects.items():
                 result += f"{object}: {count}\n"
             return "Detected objects:\n"+result

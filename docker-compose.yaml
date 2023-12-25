@@ -1,1 +1,70 @@
 
+version: '3.8'
+
+services:
+  mongo1:
+    image: mongo:5
+    container_name: mongo1
+    ports:
+      - 27017:27017
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo1
+    depends_on:
+      - mongo2
+      - mongo3
+    networks:
+      - mongoCluster
+
+  mongo2:
+    image: mongo:5
+    container_name: mongo2
+    ports:
+      - 27018:27017
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
+    networks:
+      - mongoCluster
+
+  mongo3:
+    image: mongo:5
+    container_name: mongo3
+    ports:
+      - 27019:27017
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
+    networks:
+      - mongoCluster
+
+  yolo5:
+    image: marwazu/yolo5:0.01
+    container_name: yolo5-app6
+    ports:
+      - 8081:8081
+    volumes:
+      - $HOME/.aws:/root/.aws:ro
+    environment:
+      - BUCKET_NAME=marwazu-bucket
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - mongoCluster
+
+  polybot:
+    image: marwazu/polybot:0.0.1
+    ports:
+      - 8443:8443
+    volumes:
+      - $HOME/.aws:/root/.aws:ro
+    environment:
+      - BUCKET_NAME=marwazu-bucket
+      - TELEGRAM_APP_URL=https://rapidly-promoted-primate.ngrok-free.app
+    env_file:
+      - .env
+    depends_on:
+      - yolo5
+    networks:
+      - mongoCluster
+
+networks:
+  mongoCluster:
+    driver: bridge
+
